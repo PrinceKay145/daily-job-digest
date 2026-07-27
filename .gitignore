@@ -3,3 +3,4 @@ __pycache__/
 err.log
 .venv/
 .qodo/
+.env

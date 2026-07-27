@@ -20,28 +20,42 @@ a script, so you need a 16-character **App Password**:
 
 If you don't see "App passwords", 2-Step Verification isn't fully enabled yet.
 
-### 2. Put these files in a GitHub repo
-Create a new repo (private is fine), and upload:
+### 2. Push to GitHub
+The repo is already initialised and committed locally. Create the remote and push:
+
+```bash
+gh repo create daily-job-digest --public --source=. --push   # needs the gh CLI
 ```
-scrape_jobs.py
-requirements.txt
-seen.json
-.gitignore
-.github/workflows/daily-jobs.yml
+
+Or without `gh`: create an empty repo named `daily-job-digest` at
+https://github.com/new (no README, no .gitignore — this repo already has both), then:
+
+```bash
+git remote add origin https://github.com/PrinceKay145/daily-job-digest.git
+git push -u origin main
 ```
-Keep the `.github/workflows/` folder structure exactly as shown.
 
-### 3. Add three secrets
-In the repo: **Settings → Secrets and variables → Actions → New repository secret.**
-Add:
+Keep the `.github/workflows/` folder exactly where it is or Actions won't find it.
 
-| Name                 | Value                                    |
-|----------------------|------------------------------------------|
-| `EMAIL_FROM`         | your Gmail address (the sender)           |
-| `EMAIL_APP_PASSWORD` | the 16-char app password from step 1      |
-| `EMAIL_TO`           | `princekay145@gmail.com`                  |
+### 3. Add the three secrets
+**These go in GitHub's web UI, not in a file.** In your repo:
 
-`EMAIL_FROM` and `EMAIL_TO` can be the same address.
+**Settings → Secrets and variables → Actions → New repository secret.**
+
+Add three, one at a time:
+
+| Name                 | Where to get the value                                          |
+|----------------------|-----------------------------------------------------------------|
+| `EMAIL_FROM`         | The Gmail address that sends the digest — just type it.          |
+| `EMAIL_APP_PASSWORD` | The 16-character code from step 1 (https://myaccount.google.com/apppasswords). Not your Google password. |
+| `EMAIL_TO`           | Where the digest is delivered: `princekay145@gmail.com`.          |
+
+`EMAIL_FROM` and `EMAIL_TO` can be the same address. Repository secrets stay
+encrypted and are never visible in logs, so this is safe on a public repo — but
+it is also the *only* safe place for them. Never put the app password in a file
+you commit.
+
+If you paste a secret wrong you can't read it back; just overwrite it with a new value.
 
 ### 4. Turn it on
 Go to the **Actions** tab, enable workflows if prompted, open **Daily job digest**,
@@ -88,11 +102,26 @@ Open `scrape_jobs.py`. The top `CONFIG` block is the only part you normally touc
   It's in UTC. `0 6 * * *` = 06:00 UTC daily. Moscow is UTC+3.
 
 ## Running locally (optional)
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python scrape_jobs.py --dry-run     # prints matches, sends nothing
 ```
-pip install -r requirements.txt
-python scrape_jobs.py --dry-run     # prints matches, sends nothing
-EMAIL_FROM=you@gmail.com EMAIL_APP_PASSWORD=xxxx python scrape_jobs.py   # sends
+
+`--dry-run` needs no credentials. To actually send from your machine, copy the
+placeholder file and fill in the same three values from step 3:
+
+```bash
+cp .env.example .env      # then edit .env
+.venv/bin/python scrape_jobs.py
 ```
+
+`.env` is gitignored, so it can't be committed by accident. Real environment
+variables take priority over it, which is why GitHub Actions ignores it entirely.
+
+`--dry-run` also prints, for every role, which `INCLUDE` keyword matched it
+(`why=...`) plus a tally per keyword. Use that to find keywords letting junk in
+before you change them.
 
 ## Notes / limits
 - Keyword filtering is strong but not perfect — the odd off-target role slips through,
