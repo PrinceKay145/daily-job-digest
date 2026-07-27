@@ -27,6 +27,33 @@ from email.mime.text import MIMEText
 
 import requests
 
+
+def _load_dotenv():
+    """Load KEY=VALUE lines from a local .env, for running by hand.
+
+    Real environment variables always win, so this is a no-op on GitHub Actions
+    (where the secrets arrive as env vars and no .env file exists). Deliberately
+    hand-rolled rather than pulling in python-dotenv — `requests` stays the only
+    dependency. .env is gitignored; never commit it.
+    """
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except OSError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+_load_dotenv()
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG  — edit freely. This is the only part you normally touch.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,7 +484,9 @@ def build_email(new_jobs):
 
 def send_email(subject, body):
     frm = os.environ.get("EMAIL_FROM")
-    pw = os.environ.get("EMAIL_APP_PASSWORD")
+    # Google displays app passwords as 4 space-separated groups; SMTP wants the
+    # bare 16 characters, so paste it either way and this normalises it.
+    pw = (os.environ.get("EMAIL_APP_PASSWORD") or "").replace(" ", "")
     if not frm or not pw:
         print("EMAIL_FROM / EMAIL_APP_PASSWORD not set — cannot send.", file=sys.stderr)
         return False
