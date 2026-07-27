@@ -1,0 +1,41 @@
+name: Daily job digest
+
+on:
+  schedule:
+    # 06:00 UTC = 09:00 Moscow. Change the "6" to shift the time.
+    # cron is always UTC. Format: minute hour day month weekday.
+    - cron: "0 6 * * *"
+  workflow_dispatch:      # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write         # needed so the run can save seen.json back to the repo
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper and send digest
+        env:
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python scrape_jobs.py
+
+      - name: Save seen jobs
+        run: |
+          git config user.name  "job-bot"
+          git config user.email "job-bot@users.noreply.github.com"
+          git add seen.json
+          git commit -m "Update seen jobs [skip ci]" || echo "nothing to commit"
+          git push || echo "nothing to push"
